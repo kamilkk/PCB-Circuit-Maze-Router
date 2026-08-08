@@ -22,12 +22,10 @@ cmake --build build
 
 - Execute the visualizer:
 ```bash
-cd build
-./maze_visualizer
+./build/maze_visualizer 
 ```
 
 - Execute unit tests:
 ```bash
-cd build
-ctest --output-on-failure
+ctest --test-dir build --output-on-failure
 ```
