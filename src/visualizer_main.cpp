@@ -2,6 +2,7 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <iostream>
+#include <random>
 
 using namespace ftxui;
 
@@ -14,20 +15,31 @@ int main() {
     int height = 15;
     Grid grid(width, height);
     
-    // Create a challenging maze environment
-    for (int y = 2; y <= 12; ++y) {
-        grid.setObstacle({10, y});
+    // Setup random generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> x_dist(0, width - 1);
+    std::uniform_int_distribution<> y_dist(0, height - 1);
+    std::uniform_real_distribution<> prob(0.0, 1.0);
+    // Generate random obstacles (20% probability)
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (prob(gen) < 0.20) {
+                grid.setObstacle({x, y});
+            }
+        }
     }
-    grid.setObstacle({11, 2});
-    grid.setObstacle({12, 2});
-    
-    for (int y = 0; y <= 8; ++y) {
-        grid.setObstacle({20, y});
-    }
-
     MazeRouter router(grid);
-    Point start{2, 7};
-    Point end{26, 7};
+    
+    // CRITICAL: Ensure start and end are not obstacles, and are distinct
+    Point start;
+    do {
+        start = {x_dist(gen), y_dist(gen)};
+    } while (grid.isObstacle(start));
+    Point end;
+    do {
+        end = {x_dist(gen), y_dist(gen)};
+    } while (grid.isObstacle(end) || start == end);
     
     auto path = router.route(start, end, manhattan);
 
@@ -58,17 +70,31 @@ int main() {
         rows.push_back(hbox(std::move(cells)));
     }
 
-    auto document = border(
-        vbox({
-            text(" PCB Maze Router Visualization ") | bold | center,
-            separator(),
-            vbox(std::move(rows)) | center,
-        })
-    );
+    // Build the Legend
+    auto legend = window(text(" Legend "), vbox({
+        hbox(text(" S ") | bgcolor(Color::Blue) | color(Color::White) | bold, text(" Start Point ")),
+        hbox(text(" E ") | bgcolor(Color::Green) | color(Color::White) | bold, text(" End Point ")),
+        hbox(text("   ") | bgcolor(Color::Red), text(" Obstacle ")),
+        hbox(text(" * ") | bgcolor(Color::Yellow) | color(Color::Black) | bold, text(" Routed Path ")),
+        hbox(text(" . ") | color(Color::GrayDark), text(" Empty Space ")),
+    }));
+
+    // Combine Grid and Legend
+    auto document = hbox({
+        border(
+            vbox({
+                text(" PCB Maze Router ") | bold | center,
+                separator(),
+                vbox(std::move(rows)) | center,
+            })
+        ),
+        legend
+    });
     
     auto screen = Screen::Create(Dimension::Fit(document), Dimension::Fit(document));
     Render(screen, document);
     screen.Print();
+    std::cout << std::endl;
     
     return 0;
 }
